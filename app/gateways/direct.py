@@ -7,7 +7,7 @@ y el BFF usará N8nGateway sin tocar el frontend.
 from __future__ import annotations
 
 import httpx
-from app.config import get_settings
+
 from app.schemas import AnalyzeRequest, AnalyzeResponse
 
 

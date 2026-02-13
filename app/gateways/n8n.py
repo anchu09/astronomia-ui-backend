@@ -7,6 +7,7 @@ u otro agente, y devuelve una respuesta que adaptamos al contrato del BFF.
 from __future__ import annotations
 
 import httpx
+
 from app.schemas import AnalyzeRequest, AnalyzeResponse
 
 
@@ -21,7 +22,10 @@ class N8nGateway:
             return AnalyzeResponse(
                 request_id=request.request_id,
                 status="error",
-                summary="N8N_WEBHOOK_URL no configurado. Define ORCHESTRATOR_MODE=n8n y N8N_WEBHOOK_URL en .env.",
+                summary=(
+                    "N8N_WEBHOOK_URL no configurado. "
+                    "Define ORCHESTRATOR_MODE=n8n y N8N_WEBHOOK_URL en .env."
+                ),
                 results={},
                 artifacts=[],
                 warnings=[],
