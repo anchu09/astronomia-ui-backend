@@ -12,7 +12,7 @@ load_dotenv(override=False)
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import Response
+from fastapi.responses import Response, StreamingResponse
 
 from app.config import get_settings
 from app.gateways import DirectGalaxyGateway, N8nGateway
@@ -93,6 +93,22 @@ async def analyze(request: AnalyzeRequest) -> AnalyzeResponse:
                 "summary": f"Error del backend: {str(e)}",
             },
         ) from e
+
+
+@app.post("/analyze/stream")
+async def analyze_stream(request: AnalyzeRequest) -> StreamingResponse:
+    """Stream SSE from Galaxy API (solo modo direct)."""
+    gateway = get_gateway()
+    if not isinstance(gateway, DirectGalaxyGateway):
+        raise HTTPException(
+            status_code=501,
+            detail="Streaming only available when ORCHESTRATOR_MODE=direct.",
+        )
+    return StreamingResponse(
+        gateway.analyze_stream(request),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
 
 
 @app.get("/artifacts/{request_id}/image")
