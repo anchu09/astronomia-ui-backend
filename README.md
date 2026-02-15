@@ -76,6 +76,19 @@ CORS_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
    ```
    Así el frontend llama al BFF y el BFF a astronomIA-galaxy-api.
 
+## Levantar con Docker
+
+No necesitas Python ni `uv`. Solo Docker.
+
+```bash
+cd astronomia-ui-backend
+docker compose up --build
+```
+
+BFF en **http://localhost:3000**. La Galaxy API debe estar ya levantada en el puerto 8000 (en tu PC o en otro contenedor). El frontend usa `VITE_API_URL=http://localhost:3000`.
+
+Opcional: si la Galaxy API exige API key, crea `.env` con `GALAXY_API_KEY=tu-clave` y en `docker-compose.yml` añade `env_file: .env` al servicio `bff`.
+
 ## Cambiar a n8n más adelante
 
 1. Monta n8n y crea el workflow que reciba la petición y enrute a astronomIA (o a otro agente).
@@ -90,3 +103,4 @@ CORS_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
 
 - `GET /health` → `{"status":"ok"}`
 - `POST /analyze` → mismo contrato que el frontend ya usa (request_id, message, messages, etc.). Respuesta: request_id, status, summary, results, artifacts, warnings.
+- `GET /artifacts/{request_id}/image` → proxy a la imagen del Galaxy API (solo en modo `direct`). El frontend usa esta URL para mostrar la imagen de la galaxia en el chat.
