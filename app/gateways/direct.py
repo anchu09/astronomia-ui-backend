@@ -23,7 +23,12 @@ class DirectGalaxyGateway:
     def _body(self, request: AnalyzeRequest) -> dict:
         body = request.model_dump(exclude_none=True)
         if request.messages and not request.message:
-            body.setdefault("message", request.messages[-1].content if request.messages else "")
+            # Usar el último mensaje del usuario, no el último mensaje (podría ser assistant)
+            last_user = next(
+                (m.content for m in reversed(request.messages) if m.role == "user"),
+                None,
+            )
+            body.setdefault("message", last_user or "")
         if request.message and not request.messages:
             body.setdefault("messages", [{"role": "user", "content": request.message}])
         return body
