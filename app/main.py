@@ -5,12 +5,14 @@ from __future__ import annotations
 import logging
 from contextlib import asynccontextmanager
 
+import httpx
 from dotenv import load_dotenv
 
 load_dotenv(override=False)
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import Response
 
 from app.config import get_settings
 from app.gateways import DirectGalaxyGateway, N8nGateway
@@ -91,3 +93,27 @@ async def analyze(request: AnalyzeRequest) -> AnalyzeResponse:
                 "summary": f"Error del backend: {str(e)}",
             },
         ) from e
+
+
+@app.get("/artifacts/{request_id}/image")
+async def get_artifact_image(request_id: str):
+    """Proxy a la imagen del Galaxy API (solo en modo direct). Para pruebas E2E."""
+    settings = get_settings()
+    if settings.orchestrator_mode != "direct":
+        raise HTTPException(
+            status_code=404,
+            detail="Artifact proxy only available when ORCHESTRATOR_MODE=direct.",
+        )
+    url = f"{settings.galaxy_api_url}/artifacts/{request_id}/image"
+    headers = {}
+    if settings.galaxy_api_key:
+        headers["X-API-Key"] = settings.galaxy_api_key
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        resp = await client.get(url, headers=headers)
+    if resp.status_code == 404:
+        raise HTTPException(status_code=404, detail="Image not found for this request.")
+    resp.raise_for_status()
+    return Response(
+        content=resp.content,
+        media_type=resp.headers.get("content-type", "image/jpeg"),
+    )
