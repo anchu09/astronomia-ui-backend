@@ -1,7 +1,7 @@
 [project]
 name = "astronomia-ui-backend"
 version = "0.1.0"
-description = "BFF para astronomIA UI. Conecta el frontend con el backend de análisis (o con n8n cuando exista)."
+description = "BFF for astronomIA UI: frontend to Galaxy API or n8n."
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [

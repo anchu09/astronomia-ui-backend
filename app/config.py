@@ -1,9 +1,4 @@
-"""Configuración desde variables de entorno.
-
-Modo de orquestación:
-- ORCHESTRATOR_MODE=direct  → BFF llama directamente al backend astronomIA.
-- ORCHESTRATOR_MODE=n8n     → BFF llama a n8n (orquestador); n8n enruta a astronomIA u otros.
-"""
+"""Settings from environment variables."""
 
 from __future__ import annotations
 
@@ -18,41 +13,25 @@ def _env(key: str, default: str = "") -> str:
     return (os.getenv(key) or default).strip()
 
 
-def _bool(key: str, default: bool = False) -> bool:
-    v = _env(key).lower()
-    return v in ("1", "true", "yes", "y", "on")
-
-
 @dataclass(frozen=True)
 class Settings:
-    """Configuración del BFF."""
-
-    # Modo: direct = llamar a astronomIA; n8n = llamar al orquestador n8n
     orchestrator_mode: OrchestratorMode
-
-    # Backend de análisis de galaxias (solo usado si orchestrator_mode == "direct")
     galaxy_api_url: str
-    galaxy_api_key: str  # opcional; si está definida se envía como X-API-Key
-
-    # Orquestador n8n (solo usado si orchestrator_mode == "n8n")
-    n8n_webhook_url: str  # URL del webhook que recibe la petición y enruta
-
-    # CORS: permitir origen del frontend
+    galaxy_api_key: str
+    n8n_webhook_url: str
     cors_origins: list[str]
 
     @classmethod
     def from_env(cls) -> Settings:
         mode = _env("ORCHESTRATOR_MODE", "direct").lower()
-        if mode not in ("direct", "n8n"):
-            mode = "direct"
-        orchestrator_mode: OrchestratorMode = mode  # type: ignore[assignment]
+        orchestrator_mode: OrchestratorMode = "n8n" if mode == "n8n" else "direct"
 
         galaxy_api_url = _env("GALAXY_API_URL", "http://localhost:8000").rstrip("/")
         galaxy_api_key = _env("GALAXY_API_KEY", "")
         n8n_webhook_url = _env("N8N_WEBHOOK_URL", "").rstrip("/")
 
-        origins = _env("CORS_ORIGINS", "http://localhost:5173")
-        cors_origins = [o.strip() for o in origins.split(",") if o.strip()] or ["http://localhost:5173"]
+        raw = _env("CORS_ORIGINS", "http://localhost:5173")
+        cors_origins = [o.strip() for o in raw.split(",") if o.strip()] or ["http://localhost:5173"]
 
         return cls(
             orchestrator_mode=orchestrator_mode,

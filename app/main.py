@@ -1,4 +1,4 @@
-"""BFF: entrada HTTP y enrutado al gateway configurado."""
+"""BFF: HTTP entry and routing to configured gateway."""
 
 from __future__ import annotations
 
@@ -50,7 +50,6 @@ async def lifespan(app: FastAPI):
         extra={"orchestrator_mode": settings.orchestrator_mode, "event": "startup"},
     )
     yield
-    # shutdown si hiciera falta
     global _gateway
     _gateway = None
 
@@ -58,7 +57,6 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="astronomIA UI BFF",
     version="0.1.0",
-    description="Backend For Frontend: conecta la UI con astronomIA o con n8n.",
     lifespan=lifespan,
 )
 
@@ -79,7 +77,6 @@ def health() -> dict[str, str]:
 
 @app.post("/analyze", response_model=AnalyzeResponse)
 async def analyze(request: AnalyzeRequest) -> AnalyzeResponse:
-    """Recibe la petición del frontend y la reenvía al gateway (astronomIA o n8n)."""
     try:
         gateway = get_gateway()
         return await gateway.analyze(request)
@@ -97,7 +94,6 @@ async def analyze(request: AnalyzeRequest) -> AnalyzeResponse:
 
 @app.post("/analyze/stream")
 async def analyze_stream(request: AnalyzeRequest) -> StreamingResponse:
-    """Stream SSE from Galaxy API (solo modo direct)."""
     gateway = get_gateway()
     if not isinstance(gateway, DirectGalaxyGateway):
         raise HTTPException(
@@ -113,7 +109,6 @@ async def analyze_stream(request: AnalyzeRequest) -> StreamingResponse:
 
 @app.get("/artifacts/{request_id}/image")
 async def get_artifact_image(request_id: str):
-    """Proxy a la imagen del Galaxy API (solo en modo direct). Para pruebas E2E."""
     settings = get_settings()
     if settings.orchestrator_mode != "direct":
         raise HTTPException(
