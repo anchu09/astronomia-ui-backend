@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from collections.abc import AsyncIterator
 
 import httpx
@@ -49,14 +50,54 @@ class DirectGalaxyGateway:
         headers = {"Content-Type": "application/json"}
         if self.api_key:
             headers["X-API-Key"] = self.api_key
-        async with httpx.AsyncClient(timeout=120.0) as client:
-            async with client.stream(
-                "POST",
-                url,
-                json=self._body(request),
-                headers=headers,
-            ) as resp:
-                resp.raise_for_status()
-                async for chunk in resp.aiter_bytes():
-                    if chunk:
-                        yield chunk
+        timeout = httpx.Timeout(connect=15.0, read=None, write=30.0, pool=30.0)
+        try:
+            async with httpx.AsyncClient(timeout=timeout) as client:
+                async with client.stream(
+                    "POST",
+                    url,
+                    json=self._body(request),
+                    headers=headers,
+                ) as resp:
+                    resp.raise_for_status()
+                    async for chunk in resp.aiter_bytes():
+                        if chunk:
+                            yield chunk
+        except httpx.TimeoutException:
+            yield self._sse_event(
+                "error",
+                {
+                    "type": "error",
+                    "message": "El análisis tardó demasiado. Inténtalo de nuevo.",
+                },
+            )
+            yield self._sse_event(
+                "end",
+                {
+                    "type": "end",
+                    "request_id": request.request_id,
+                    "status": "error",
+                    "summary": "El análisis tardó demasiado. Inténtalo de nuevo.",
+                },
+            )
+        except httpx.HTTPError as exc:
+            yield self._sse_event(
+                "error",
+                {
+                    "type": "error",
+                    "message": f"Error al comunicar con Galaxy API: {exc}",
+                },
+            )
+            yield self._sse_event(
+                "end",
+                {
+                    "type": "end",
+                    "request_id": request.request_id,
+                    "status": "error",
+                    "summary": "No se pudo completar el análisis por un error de comunicación.",
+                },
+            )
+
+    @staticmethod
+    def _sse_event(event_name: str, payload: dict) -> bytes:
+        return f"event: {event_name}\ndata: {json.dumps(payload)}\n\n".encode("utf-8")
