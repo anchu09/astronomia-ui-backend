@@ -60,11 +60,32 @@ BFF en `http://localhost:3000`. Galaxy API debe estar en `:8000` (host o otro co
 
 **Usar n8n**
 
-`ORCHESTRATOR_MODE=n8n` y `N8N_WEBHOOK_URL=<url>`. Reiniciar BFF. El frontend no cambia.
+Pon `ORCHESTRATOR_MODE=n8n` y `N8N_WEBHOOK_URL=<url del webhook>` en el `.env`, reinicia el BFF. El frontend no cambia.
+
+## n8n como enrutador
+
+El BFF envía las peticiones del chat al webhook de n8n en lugar de a la Galaxy API. n8n puede decidir si reenviar a la Galaxy API o a otro agente según el mensaje.
+
+**.env del BFF:** `ORCHESTRATOR_MODE=n8n`, `N8N_WEBHOOK_URL=https://...`
+
+**En n8n:** Workflow con Webhook (POST, JSON). El body es el mismo que usa la Galaxy API (`request_id`, `message`, `messages`). Enruta por contenido (IF/Switch en `body.message` o un clasificador) y responde con JSON:
+
+```json
+{
+  "request_id": "...",
+  "status": "success",
+  "summary": "Texto de respuesta",
+  "results": {},
+  "artifacts": [],
+  "warnings": []
+}
+```
+
+Si hay imagen y no usas el proxy del BFF (solo en modo direct), incluye `image_url` con la URL pública de la imagen; el frontend la usa.
 
 ## Endpoints
 
 - `GET /health` → `{"status":"ok"}`
-- `POST /analyze` → request_id, message/messages; response: request_id, status, summary, results, artifacts, warnings
-- `POST /analyze/stream` → SSE (solo modo `direct`)
-- `GET /artifacts/{request_id}/image` → proxy imagen Galaxy API (solo modo `direct`)
+- `POST /analyze` — body: request_id, message/messages. Respuesta: request_id, status, summary, results, artifacts, warnings.
+- `POST /analyze/stream` — mismo body, respuesta SSE (status, summary, artifacts, end). Con n8n el BFF llama al webhook y convierte la respuesta a SSE.
+- `GET /artifacts/{request_id}/image` — proxy a Galaxy API (solo modo direct)

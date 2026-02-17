@@ -1,4 +1,4 @@
-"""BFF: HTTP entry and routing to configured gateway."""
+"""BFF: frontend → gateway (Galaxy API o n8n)."""
 
 from __future__ import annotations
 
@@ -95,11 +95,6 @@ async def analyze(request: AnalyzeRequest) -> AnalyzeResponse:
 @app.post("/analyze/stream")
 async def analyze_stream(request: AnalyzeRequest) -> StreamingResponse:
     gateway = get_gateway()
-    if not isinstance(gateway, DirectGalaxyGateway):
-        raise HTTPException(
-            status_code=501,
-            detail="Streaming only available when ORCHESTRATOR_MODE=direct.",
-        )
     return StreamingResponse(
         gateway.analyze_stream(request),
         media_type="text/event-stream",
