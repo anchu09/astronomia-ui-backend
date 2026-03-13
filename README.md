@@ -92,5 +92,9 @@ Si hay imagen y no usas el proxy del BFF (solo en modo direct), incluye `image_u
 - `GET /artifacts/{request_id}/image` — proxy a Galaxy API (solo modo direct)
 =======
 - `POST /analyze` → mismo contrato que el frontend ya usa (request_id, message, messages, etc.). Respuesta: request_id, status, summary, results, artifacts, warnings.
+<<<<<<< Updated upstream
+- `GET /artifacts/{request_id}/image` → proxy a la imagen del Galaxy API (solo en modo `direct`). El frontend usa esta URL para mostrar la imagen de la galaxia en el chat.
+>>>>>>> Stashed changes
+=======
 - `GET /artifacts/{request_id}/image` → proxy a la imagen del Galaxy API (solo en modo `direct`). El frontend usa esta URL para mostrar la imagen de la galaxia en el chat.
 >>>>>>> Stashed changes
