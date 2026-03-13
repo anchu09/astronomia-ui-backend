@@ -86,6 +86,11 @@ Si hay imagen y no usas el proxy del BFF (solo en modo direct), incluye `image_u
 ## Endpoints
 
 - `GET /health` → `{"status":"ok"}`
+<<<<<<< Updated upstream
 - `POST /analyze` — body: request_id, message/messages. Respuesta: request_id, status, summary, results, artifacts, warnings.
 - `POST /analyze/stream` — mismo body, respuesta SSE (status, summary, artifacts, end). Con n8n el BFF llama al webhook y convierte la respuesta a SSE.
 - `GET /artifacts/{request_id}/image` — proxy a Galaxy API (solo modo direct)
+=======
+- `POST /analyze` → mismo contrato que el frontend ya usa (request_id, message, messages, etc.). Respuesta: request_id, status, summary, results, artifacts, warnings.
+- `GET /artifacts/{request_id}/image` → proxy a la imagen del Galaxy API (solo en modo `direct`). El frontend usa esta URL para mostrar la imagen de la galaxia en el chat.
+>>>>>>> Stashed changes
