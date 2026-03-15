@@ -1,25 +1,25 @@
-# astronomIA UI BFF
+# astronomIA UI Backend (BFF)
 
-BFF que conecta **astronomia-ui-frontend** con **astronomia-galaxy-api** o con **n8n**. Solo cambia variables de entorno.
+BFF que conecta **astronomia-ui-frontend** con **astronomia-galaxy-api** (o n8n). Proxy en FastAPI, reenvía peticiones y SSE.
 
 ## Modos
 
-| Modo | `ORCHESTRATOR_MODE` | Comportamiento |
-|------|---------------------|----------------|
-| Directo | `direct` | BFF → Galaxy API (`POST /analyze`, `/analyze/stream`) |
-| n8n | `n8n` | BFF → webhook n8n → Galaxy API u otros |
+| Modo | `ORCHESTRATOR_MODE` | Flujo |
+|------|---------------------|-------|
+| Directo | `direct` | BFF → Galaxy API (`/analyze/stream`, `/artifacts`) |
+| n8n | `n8n` | BFF → webhook n8n → Galaxy API u otros servicios |
 
 ## Estructura
 
 ```
 app/
-├── main.py       # FastAPI, CORS, /analyze, /health, /artifacts
+├── main.py       # FastAPI, CORS, rutas /health, /analyze, /analyze/stream, /artifacts
 ├── config.py     # Settings desde env
 ├── schemas.py    # AnalyzeRequest, AnalyzeResponse
 └── gateways/
-    ├── base.py   # AnalysisGateway (ABC)
-    ├── direct.py # DirectGalaxyGateway
-    └── n8n.py    # N8nGateway
+    ├── base.py   # AnalysisGateway (ABC): analyze() + analyze_stream()
+    ├── direct.py # DirectGalaxyGateway — proxy a Galaxy API con streaming SSE
+    └── n8n.py    # N8nGateway — webhook a n8n, convierte respuesta a SSE
 ```
 
 ## Requisitos
@@ -29,7 +29,7 @@ app/
 
 ## Configuración
 
-`.env` en la raíz:
+Crear `.env` en la raíz (ver `.env.example`):
 
 ```env
 ORCHESTRATOR_MODE=direct
@@ -41,7 +41,7 @@ CORS_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
 
 ## Ejecución
 
-**Local**
+**Local:**
 
 1. Galaxy API en `:8000` (en su repo: `make run`).
 2. BFF:
@@ -50,25 +50,21 @@ CORS_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
    ```
 3. Frontend con `VITE_API_URL=http://localhost:3000`.
 
-**Docker**
+**Docker:**
 
 ```bash
 docker compose up --build
 ```
 
-BFF en `http://localhost:3000`. Galaxy API debe estar en `:8000` (host o otro contenedor). Con API key: `.env` con `GALAXY_API_KEY` y en `docker-compose.yml` añadir `env_file: .env` al servicio `bff`.
+BFF en `http://localhost:3000`. Galaxy API debe estar en `:8000` (host o contenedor). Con API key: añadir `GALAXY_API_KEY` en `.env` y `env_file: .env` al servicio en `docker-compose.yml`.
 
-**Usar n8n**
+## Modo n8n
 
-Pon `ORCHESTRATOR_MODE=n8n` y `N8N_WEBHOOK_URL=<url del webhook>` en el `.env`, reinicia el BFF. El frontend no cambia.
+Usa n8n como enrutador entre el frontend y otros backends.
 
-## n8n como enrutador
-
-El BFF envía las peticiones del chat al webhook de n8n en lugar de a la Galaxy API. n8n puede decidir si reenviar a la Galaxy API o a otro agente según el mensaje.
-
-**.env del BFF:** `ORCHESTRATOR_MODE=n8n`, `N8N_WEBHOOK_URL=https://...`
-
-**En n8n:** Workflow con Webhook (POST, JSON). El body es el mismo que usa la Galaxy API (`request_id`, `message`, `messages`). Enruta por contenido (IF/Switch en `body.message` o un clasificador) y responde con JSON:
+1. En `.env`: `ORCHESTRATOR_MODE=n8n` y `N8N_WEBHOOK_URL=<url>`.
+2. El BFF envía las peticiones al webhook. n8n decide a qué servicio reenviar según el mensaje.
+3. n8n responde con el mismo esquema JSON que la Galaxy API:
 
 ```json
 {
@@ -81,20 +77,20 @@ El BFF envía las peticiones del chat al webhook de n8n en lugar de a la Galaxy 
 }
 ```
 
-Si hay imagen y no usas el proxy del BFF (solo en modo direct), incluye `image_url` con la URL pública de la imagen; el frontend la usa.
+Si hay imagen y no se usa el proxy del BFF, incluir `image_url` con la URL pública; el frontend la usa directamente.
 
 ## Endpoints
 
-- `GET /health` → `{"status":"ok"}`
-<<<<<<< Updated upstream
-- `POST /analyze` — body: request_id, message/messages. Respuesta: request_id, status, summary, results, artifacts, warnings.
-- `POST /analyze/stream` — mismo body, respuesta SSE (status, summary, artifacts, end). Con n8n el BFF llama al webhook y convierte la respuesta a SSE.
-- `GET /artifacts/{request_id}/image` — proxy a Galaxy API (solo modo direct)
-=======
-- `POST /analyze` → mismo contrato que el frontend ya usa (request_id, message, messages, etc.). Respuesta: request_id, status, summary, results, artifacts, warnings.
-<<<<<<< Updated upstream
-- `GET /artifacts/{request_id}/image` → proxy a la imagen del Galaxy API (solo en modo `direct`). El frontend usa esta URL para mostrar la imagen de la galaxia en el chat.
->>>>>>> Stashed changes
-=======
-- `GET /artifacts/{request_id}/image` → proxy a la imagen del Galaxy API (solo en modo `direct`). El frontend usa esta URL para mostrar la imagen de la galaxia en el chat.
->>>>>>> Stashed changes
+| Método | Ruta | Descripción |
+|--------|------|-------------|
+| `GET` | `/health` | `{"status":"ok"}` |
+| `POST` | `/analyze` | Análisis síncrono. Body: `request_id`, `message`/`messages`. Respuesta JSON |
+| `POST` | `/analyze/stream` | Mismo body, respuesta SSE (`status`, `summary`, `artifacts`, `end`). En modo n8n el BFF convierte la respuesta JSON a SSE |
+| `GET` | `/artifacts/{request_id}/image` | Proxy a la imagen de Galaxy API (solo modo `direct`) |
+
+## Tests y calidad
+
+```bash
+make test    # pytest
+make lint    # ruff
+```
