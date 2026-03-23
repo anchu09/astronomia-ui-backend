@@ -13,10 +13,12 @@ BFF que conecta **astronomia-ui-frontend** con **astronomia-galaxy-api** (o n8n)
 
 ```
 app/
+├── __init__.py
 ├── main.py       # FastAPI, CORS, rutas /health, /analyze, /analyze/stream, /artifacts
 ├── config.py     # Settings desde env
-├── schemas.py    # AnalyzeRequest, AnalyzeResponse
+├── schemas.py    # AnalyzeRequest (+ ChatMessage), AnalyzeResponse
 └── gateways/
+    ├── __init__.py
     ├── base.py   # AnalysisGateway (ABC): analyze() + analyze_stream()
     ├── direct.py # DirectGalaxyGateway — proxy a Galaxy API con streaming SSE
     └── n8n.py    # N8nGateway — webhook a n8n, convierte respuesta a SSE
@@ -84,13 +86,31 @@ Si hay imagen y no se usa el proxy del BFF, incluir `image_url` con la URL públ
 | Método | Ruta | Descripción |
 |--------|------|-------------|
 | `GET` | `/health` | `{"status":"ok"}` |
-| `POST` | `/analyze` | Análisis síncrono. Body: `request_id`, `message`/`messages`. Respuesta JSON |
-| `POST` | `/analyze/stream` | Mismo body, respuesta SSE (`status`, `summary`, `artifacts`, `end`). En modo n8n el BFF convierte la respuesta JSON a SSE |
+| `POST` | `/analyze` | Análisis síncrono. Body: `request_id`, `message`/`messages`, `target`, `task`, `image_url`, `options`. Respuesta JSON |
+| `POST` | `/analyze/stream` | Mismo body, respuesta SSE (`status`, `summary`, `artifacts`, `end`, `error`). En modo n8n el BFF convierte la respuesta JSON a SSE |
 | `GET` | `/artifacts/{request_id}/image` | Proxy a la imagen de Galaxy API (solo modo `direct`) |
 
 ## Tests y calidad
 
 ```bash
-make test    # pytest
+make install # uv sync --group dev
+make run     # uvicorn con --reload en :3000
+make test    # pytest (sin tests por ahora)
 make lint    # ruff
 ```
+
+### Normalización del body
+
+Los gateways normalizan automáticamente los campos `message` y `messages`: si envías solo `messages`, extrae el último mensaje de usuario como `message`; si envías solo `message`, lo envuelve en un array `messages`.
+
+### Autenticación
+
+Las peticiones al Galaxy API incluyen el header `X-API-Key` con el valor de `GALAXY_API_KEY`.
+
+### Timeouts
+
+| Ruta | Timeout |
+|------|---------|
+| `POST /analyze` | 120s |
+| `POST /analyze/stream` | connect 15s, write 30s, read sin límite |
+| `GET /artifacts/.../image` | 30s |
