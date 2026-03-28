@@ -1,4 +1,4 @@
-"""BFF: frontend → gateway (Galaxy API o n8n)."""
+"""BFF: frontend → gateway (Galaxy API o n8n), con router LLM en modo auto."""
 
 from __future__ import annotations
 
@@ -17,41 +17,80 @@ from fastapi.responses import Response, StreamingResponse
 from app.config import get_settings
 from app.gateways import DirectGalaxyGateway, N8nGateway
 from app.gateways.base import AnalysisGateway
+from app.router import IntentClassifier
 from app.schemas import AnalyzeRequest, AnalyzeResponse
 
 logger = logging.getLogger(__name__)
 
+_galaxy_gateway: DirectGalaxyGateway | None = None
+_observation_gateway: N8nGateway | None = None
+_classifier: IntentClassifier | None = None
 
-def _create_gateway() -> AnalysisGateway:
+
+def _init_gateways() -> None:
+    global _galaxy_gateway, _observation_gateway, _classifier
     settings = get_settings()
-    if settings.orchestrator_mode == "n8n":
-        return N8nGateway(webhook_url=settings.n8n_webhook_url)
-    return DirectGalaxyGateway(
+    _galaxy_gateway = DirectGalaxyGateway(
         base_url=settings.galaxy_api_url,
         api_key=settings.galaxy_api_key,
     )
+    _observation_gateway = N8nGateway(webhook_url=settings.n8n_webhook_url)
+    if settings.orchestrator_mode == "auto":
+        if not settings.openai_api_key:
+            raise RuntimeError(
+                "ORCHESTRATOR_MODE=auto requiere OPENAI_API_KEY en el entorno. "
+                "Configura la variable o usa ORCHESTRATOR_MODE=direct/n8n."
+            )
+        _classifier = IntentClassifier(model=settings.openai_model)
 
 
-_gateway: AnalysisGateway | None = None
+def _last_user_message(request: AnalyzeRequest) -> str:
+    """Extrae el ultimo mensaje del usuario del request."""
+    if request.message:
+        return request.message
+    if request.messages:
+        for msg in reversed(request.messages):
+            if msg.role == "user":
+                return msg.content
+    return ""
 
 
-def get_gateway() -> AnalysisGateway:
-    global _gateway
-    if _gateway is None:
-        _gateway = _create_gateway()
-    return _gateway
+async def _select_gateway(request: AnalyzeRequest) -> AnalysisGateway:
+    """Selecciona el gateway segun el modo de orquestacion."""
+    settings = get_settings()
+    assert _galaxy_gateway is not None
+    assert _observation_gateway is not None
+
+    if settings.orchestrator_mode == "direct":
+        return _galaxy_gateway
+    if settings.orchestrator_mode == "n8n":
+        return _observation_gateway
+
+    # Modo auto: clasificar con LLM
+    assert _classifier is not None
+    intent = await _classifier.classify(_last_user_message(request))
+    logger.info(
+        "request_routed",
+        extra={"intent": intent, "request_id": request.request_id},
+    )
+    if intent == "observation_planning":
+        return _observation_gateway
+    return _galaxy_gateway
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     settings = get_settings()
+    _init_gateways()
     logger.info(
         "bff_started",
         extra={"orchestrator_mode": settings.orchestrator_mode, "event": "startup"},
     )
     yield
-    global _gateway
-    _gateway = None
+    global _galaxy_gateway, _observation_gateway, _classifier
+    _galaxy_gateway = None
+    _observation_gateway = None
+    _classifier = None
 
 
 app = FastAPI(
@@ -78,7 +117,7 @@ def health() -> dict[str, str]:
 @app.post("/analyze", response_model=AnalyzeResponse)
 async def analyze(request: AnalyzeRequest) -> AnalyzeResponse:
     try:
-        gateway = get_gateway()
+        gateway = await _select_gateway(request)
         return await gateway.analyze(request)
     except Exception as e:
         logger.exception("analyze_failed", extra={"request_id": request.request_id})
@@ -94,7 +133,7 @@ async def analyze(request: AnalyzeRequest) -> AnalyzeResponse:
 
 @app.post("/analyze/stream")
 async def analyze_stream(request: AnalyzeRequest) -> StreamingResponse:
-    gateway = get_gateway()
+    gateway = await _select_gateway(request)
     return StreamingResponse(
         gateway.analyze_stream(request),
         media_type="text/event-stream",
@@ -105,10 +144,10 @@ async def analyze_stream(request: AnalyzeRequest) -> StreamingResponse:
 @app.get("/artifacts/{request_id}/image")
 async def get_artifact_image(request_id: str):
     settings = get_settings()
-    if settings.orchestrator_mode != "direct":
+    if settings.orchestrator_mode == "n8n":
         raise HTTPException(
             status_code=404,
-            detail="Artifact proxy only available when ORCHESTRATOR_MODE=direct.",
+            detail="Artifact proxy not available when ORCHESTRATOR_MODE=n8n.",
         )
     url = f"{settings.galaxy_api_url}/artifacts/{request_id}/image"
     headers = {}
