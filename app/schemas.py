@@ -20,11 +20,12 @@ class AnalyzeRequest(BaseModel):
     task: str | None = None
     image_url: str | None = None
     options: dict[str, Any] = Field(default_factory=dict)
-    # Campos de vista Aladin: coords + survey ya determinados por el frontend
+    # Campos de vista Aladin: coords + survey + captura del canvas
     view_ra_deg: float | None = None
     view_dec_deg: float | None = None
     view_size_arcmin: float | None = None
     view_hips_id: str | None = None
+    image_data: str | None = None
 
 
 class AnalyzeResponse(BaseModel):
