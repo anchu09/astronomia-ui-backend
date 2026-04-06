@@ -1,37 +1,37 @@
 # astronomIA UI Backend (BFF)
 
-BFF que conecta **astronomia-ui-frontend** con **astronomia-galaxy-api** (o n8n). Proxy en FastAPI, reenvía peticiones y SSE.
+Backend for Frontend that connects **astronomia-ui-frontend** with **astronomia-galaxy-api** (or n8n). A lightweight FastAPI proxy that forwards requests and SSE streams.
 
-## Modos
+## Orchestration modes
 
-| Modo | `ORCHESTRATOR_MODE` | Flujo |
-|------|---------------------|-------|
-| Directo | `direct` | BFF → Galaxy API (`/analyze/stream`, `/artifacts`) |
-| n8n | `n8n` | BFF → webhook n8n → Galaxy API u otros servicios |
+| Mode | `ORCHESTRATOR_MODE` | Flow |
+|------|---------------------|------|
+| Direct | `direct` | BFF → Galaxy API (`/analyze/stream`, `/artifacts`) |
+| n8n | `n8n` | BFF → n8n webhook → Galaxy API or other services |
 
-## Estructura
+## Project structure
 
 ```
 app/
 ├── __init__.py
-├── main.py       # FastAPI, CORS, rutas /health, /analyze, /analyze/stream, /artifacts
-├── config.py     # Settings desde env
+├── main.py       # FastAPI app, CORS, routes: /health, /analyze, /analyze/stream, /artifacts
+├── config.py     # Settings loaded from environment variables
 ├── schemas.py    # AnalyzeRequest (+ ChatMessage), AnalyzeResponse
 └── gateways/
     ├── __init__.py
     ├── base.py   # AnalysisGateway (ABC): analyze() + analyze_stream()
-    ├── direct.py # DirectGalaxyGateway — proxy a Galaxy API con streaming SSE
-    └── n8n.py    # N8nGateway — webhook a n8n, convierte respuesta a SSE
+    ├── direct.py # DirectGalaxyGateway — proxy to Galaxy API with SSE streaming
+    └── n8n.py    # N8nGateway — webhook to n8n, converts response to SSE
 ```
 
-## Requisitos
+## Requirements
 
 - Python 3.11+
-- [uv](https://docs.astral.sh/uv/) o pip
+- [uv](https://docs.astral.sh/uv/) or pip
 
-## Configuración
+## Configuration
 
-Crear `.env` en la raíz (ver `.env.example`):
+Create a `.env` file in the root (see `.env.example`):
 
 ```env
 ORCHESTRATOR_MODE=direct
@@ -41,16 +41,14 @@ N8N_WEBHOOK_URL=
 CORS_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
 ```
 
-## Ejecución
+## Running locally
 
-**Local:**
-
-1. Galaxy API en `:8000` (en su repo: `make run`).
-2. BFF:
+1. Start the Galaxy API on `:8000` (in its repo: `make run`).
+2. Start the BFF:
    ```bash
    uv sync && uv run uvicorn app.main:app --reload --port 3000
    ```
-3. Frontend con `VITE_API_URL=http://localhost:3000`.
+3. Point the frontend at `VITE_API_URL=http://localhost:3000`.
 
 **Docker:**
 
@@ -58,59 +56,59 @@ CORS_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
 docker compose up --build
 ```
 
-BFF en `http://localhost:3000`. Galaxy API debe estar en `:8000` (host o contenedor). Con API key: añadir `GALAXY_API_KEY` en `.env` y `env_file: .env` al servicio en `docker-compose.yml`.
+BFF available at `http://localhost:3000`. The Galaxy API must be reachable on `:8000`. To use an API key add `GALAXY_API_KEY` to `.env` and `env_file: .env` to the service in `docker-compose.yml`.
 
-## Modo n8n
+## n8n mode
 
-Usa n8n como enrutador entre el frontend y otros backends.
+Use n8n as a routing layer between the frontend and backend services.
 
-1. En `.env`: `ORCHESTRATOR_MODE=n8n` y `N8N_WEBHOOK_URL=<url>`.
-2. El BFF envía las peticiones al webhook. n8n decide a qué servicio reenviar según el mensaje.
-3. n8n responde con el mismo esquema JSON que la Galaxy API:
+1. Set `ORCHESTRATOR_MODE=n8n` and `N8N_WEBHOOK_URL=<url>` in `.env`.
+2. The BFF forwards all requests to the webhook. n8n decides how to route them.
+3. n8n must respond with the same JSON schema as the Galaxy API:
 
 ```json
 {
   "request_id": "...",
   "status": "success",
-  "summary": "Texto de respuesta",
+  "summary": "Response text",
   "results": {},
   "artifacts": [],
   "warnings": []
 }
 ```
 
-Si hay imagen y no se usa el proxy del BFF, incluir `image_url` con la URL pública; el frontend la usa directamente.
+If there is an image and the BFF artifact proxy is not used, include `image_url` with a public URL — the frontend uses it directly.
 
 ## Endpoints
 
-| Método | Ruta | Descripción |
-|--------|------|-------------|
+| Method | Route | Description |
+|--------|-------|-------------|
 | `GET` | `/health` | `{"status":"ok"}` |
-| `POST` | `/analyze` | Análisis síncrono. Body: `request_id`, `message`/`messages`, `target`, `task`, `image_url`, `options`. Respuesta JSON |
-| `POST` | `/analyze/stream` | Mismo body, respuesta SSE (`status`, `summary`, `artifacts`, `end`, `error`). En modo n8n el BFF convierte la respuesta JSON a SSE |
-| `GET` | `/artifacts/{request_id}/image` | Proxy a la imagen de Galaxy API (solo modo `direct`) |
+| `POST` | `/analyze` | Synchronous analysis. Body: `request_id`, `message`/`messages`, `target`, `task`, `image_url`, `options`. Returns JSON. |
+| `POST` | `/analyze/stream` | Same body, SSE response (`status`, `summary`, `artifacts`, `end`, `error`). In n8n mode the BFF converts the JSON response to SSE. |
+| `GET` | `/artifacts/{request_id}/image` | Proxy to Galaxy API image (direct mode only). |
 
-## Tests y calidad
+## Quality
 
 ```bash
 make install # uv sync --group dev
-make run     # uvicorn con --reload en :3000
-make test    # pytest (sin tests por ahora)
+make run     # uvicorn --reload on :3000
+make test    # pytest
 make lint    # ruff
 ```
 
-### Normalización del body
+### Request body normalisation
 
-Los gateways normalizan automáticamente los campos `message` y `messages`: si envías solo `messages`, extrae el último mensaje de usuario como `message`; si envías solo `message`, lo envuelve en un array `messages`.
+Gateways automatically normalise `message` and `messages` fields: if only `messages` is provided, the last user message is extracted as `message`; if only `message` is provided, it is wrapped in a `messages` array.
 
-### Autenticación
+### Authentication
 
-Las peticiones al Galaxy API incluyen el header `X-API-Key` con el valor de `GALAXY_API_KEY`.
+Requests to the Galaxy API include the `X-API-Key` header with the value of `GALAXY_API_KEY`.
 
 ### Timeouts
 
-| Ruta | Timeout |
-|------|---------|
+| Route | Timeout |
+|-------|---------|
 | `POST /analyze` | 120s |
-| `POST /analyze/stream` | connect 15s, write 30s, read sin límite |
+| `POST /analyze/stream` | connect 15s, write 30s, read unlimited |
 | `GET /artifacts/.../image` | 30s |
