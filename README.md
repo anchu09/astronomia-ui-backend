@@ -53,11 +53,13 @@ CORS_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
 
 **Docker:**
 
+Copia `.env.example` a `.env` y configura al menos `ORCHESTRATOR_MODE` (p. ej. `auto` o `n8n`) y, si aplica, `N8N_WEBHOOK_URL` y `OPENAI_API_KEY`. El `docker-compose.yml` carga ese `.env` y solo fuerza `GALAXY_API_URL` hacia el host (`host.docker.internal:8000`).
+
 ```bash
 docker compose up --build
 ```
 
-BFF available at `http://localhost:3000`. The Galaxy API must be reachable on `:8000`. To use an API key add `GALAXY_API_KEY` to `.env` and `env_file: .env` to the service in `docker-compose.yml`.
+BFF en `http://localhost:3000`. La Galaxy API debe estar accesible en el puerto **8000 del host** (no hace falta `GALAXY_API_URL` en `.env` para Docker: el compose la sobrescribe).
 
 ## n8n mode
 

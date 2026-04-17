@@ -5,6 +5,9 @@ services:
     env_file: .env
     ports:
       - "3000:3000"
+    # ORCHESTRATOR_MODE, N8N_WEBHOOK_URL, OPENAI_API_KEY, etc. vienen de .env (igual que en local).
+    env_file:
+      - .env
     environment:
       GALAXY_API_URL: http://host.docker.internal:8000
       CORS_ORIGINS: http://localhost:5173,http://127.0.0.1:5173
