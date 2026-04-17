@@ -9,7 +9,8 @@ RUN pip install --no-cache-dir \
     "uvicorn>=0.32.0" \
     "httpx>=0.27.0" \
     "pydantic>=2.9.0" \
-    "python-dotenv>=1.0.0"
+    "python-dotenv>=1.0.0" \
+    "openai>=1.60.0"
 
 COPY app/ ./app/
 
