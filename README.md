@@ -8,6 +8,7 @@ Backend for Frontend that connects **astronomia-ui-frontend** with **astronomia-
 |------|---------------------|------|
 | Direct | `direct` | BFF → Galaxy API (`/analyze/stream`, `/artifacts`) |
 | n8n | `n8n` | BFF → n8n webhook → Galaxy API or other services |
+| Auto | `auto` | LLM classifier: observation planning → n8n; object analysis → Galaxy API (requires `OPENAI_API_KEY`) |
 
 ## Project structure
 

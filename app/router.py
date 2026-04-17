@@ -1,4 +1,4 @@
-"""Clasificador de intenciones basado en LLM para enrutar requests."""
+"""LLM-based intent classifier for routing requests to the appropriate gateway."""
 
 from __future__ import annotations
 
@@ -34,14 +34,14 @@ Si el mensaje es ambiguo o no encaja, responde {"intent": "galaxy_analysis"}.\
 
 
 class IntentClassifier:
-    """Clasifica mensajes de usuario usando un LLM ligero."""
+    """Routes user messages to the correct backend using lightweight LLM classification."""
 
     def __init__(self, model: str = "gpt-4.1-mini") -> None:
         self._client = OpenAI()
         self._model = model
 
     async def classify(self, message: str) -> Intent:
-        """Clasifica la intencion del mensaje del usuario."""
+        """Classify the intent of the user message."""
         if not message or not message.strip():
             return _DEFAULT_INTENT
         try:
@@ -58,7 +58,7 @@ class IntentClassifier:
             return _DEFAULT_INTENT
 
     def _call_openai(self, message: str) -> str:
-        """Llamada sincronizada a OpenAI (se ejecuta en thread via asyncio.to_thread)."""
+        """Synchronous OpenAI call executed in a thread via asyncio.to_thread."""
         response = self._client.chat.completions.create(
             model=self._model,
             response_format={"type": "json_object"},

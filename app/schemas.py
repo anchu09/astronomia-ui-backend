@@ -20,7 +20,7 @@ class AnalyzeRequest(BaseModel):
     task: str | None = None
     image_url: str | None = None
     options: dict[str, Any] = Field(default_factory=dict)
-    # Campos de vista Aladin: coords + survey + captura del canvas
+    # Aladin viewer state: coordinates, active survey and canvas capture
     view_ra_deg: float | None = None
     view_dec_deg: float | None = None
     view_size_arcmin: float | None = None

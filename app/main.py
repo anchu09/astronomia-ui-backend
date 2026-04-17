@@ -1,4 +1,4 @@
-"""BFF: frontend → gateway (Galaxy API o n8n), con router LLM en modo auto."""
+"""BFF: routes requests from the frontend to the Galaxy API or n8n, with an optional LLM classifier in auto mode."""
 
 from __future__ import annotations
 
@@ -38,14 +38,14 @@ def _init_gateways() -> None:
     if settings.orchestrator_mode == "auto":
         if not settings.openai_api_key:
             raise RuntimeError(
-                "ORCHESTRATOR_MODE=auto requiere OPENAI_API_KEY en el entorno. "
-                "Configura la variable o usa ORCHESTRATOR_MODE=direct/n8n."
+                "ORCHESTRATOR_MODE=auto requires OPENAI_API_KEY to be set. "
+                "Set the variable or switch to ORCHESTRATOR_MODE=direct/n8n."
             )
         _classifier = IntentClassifier(model=settings.openai_model)
 
 
 def _last_user_message(request: AnalyzeRequest) -> str:
-    """Extrae el ultimo mensaje del usuario del request."""
+    """Extract the last user message from the request."""
     if request.message:
         return request.message
     if request.messages:
@@ -56,7 +56,7 @@ def _last_user_message(request: AnalyzeRequest) -> str:
 
 
 async def _select_gateway(request: AnalyzeRequest) -> AnalysisGateway:
-    """Selecciona el gateway segun el modo de orquestacion."""
+    """Select the appropriate gateway based on the orchestration mode."""
     settings = get_settings()
     assert _galaxy_gateway is not None
     assert _observation_gateway is not None
@@ -66,7 +66,7 @@ async def _select_gateway(request: AnalyzeRequest) -> AnalysisGateway:
     if settings.orchestrator_mode == "n8n":
         return _observation_gateway
 
-    # Modo auto: clasificar con LLM
+    # auto mode: classify intent with LLM
     assert _classifier is not None
     intent = await _classifier.classify(_last_user_message(request))
     logger.info(
