@@ -4,8 +4,10 @@ services:
     container_name: astronomia-ui-bff
     ports:
       - "3000:3000"
+    # ORCHESTRATOR_MODE, N8N_WEBHOOK_URL, OPENAI_API_KEY, etc. vienen de .env (igual que en local).
+    env_file:
+      - .env
     environment:
-      ORCHESTRATOR_MODE: direct
+      # Dentro del contenedor localhost:8000 no es el host; el resto de variables no se tocan.
       GALAXY_API_URL: http://host.docker.internal:8000
-      GALAXY_API_KEY: ""
       CORS_ORIGINS: http://localhost:5173,http://127.0.0.1:5173
