@@ -84,9 +84,19 @@ class N8nGateway(AnalysisGateway):
         request_id = data.get("request_id", request.request_id)
         status = data.get("status", "success")
         summary = data.get("summary", "")
+        artifacts = data.get("artifacts", [])
 
         if summary:
             yield self._sse_event("summary", {"type": "summary", "summary": summary})
+
+        html_artifact = next((a for a in artifacts if a.get("format") == "html" or a.get("type") == "html"), None)
+        if html_artifact:
+            yield self._sse_event("artifacts", {
+                "type": "artifacts",
+                "request_id": request_id,
+                "html_chart": html_artifact.get("content", ""),
+            })
+
         yield self._sse_event("end", {
             "type": "end",
             "request_id": request_id,
