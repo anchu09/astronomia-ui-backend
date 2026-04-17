@@ -66,7 +66,6 @@ async def _select_gateway(request: AnalyzeRequest) -> AnalysisGateway:
     if settings.orchestrator_mode == "n8n":
         return _observation_gateway
 
-    # auto mode: classify intent with LLM
     assert _classifier is not None
     intent = await _classifier.classify(_last_user_message(request))
     logger.info(
